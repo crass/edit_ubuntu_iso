@@ -78,11 +78,18 @@ cp -r isolinux ..
 
 for P in casper/* boot/grub/* *; do
     case "$P" in
-        casper|casper/$INITRD) ;;
-        README.diskdefines|md5sum.txt) ;;
-        isolinux|isolinux/boot.cat) ;;
-        boot|boot/grub/grub.cfg) ;;
-        boot|boot/grub/loopback.cfg) ;;
+        casper/$INITRD) ;&
+        README.diskdefines|md5sum.txt) ;&
+        isolinux) ;&
+        boot/grub/grub.cfg|boot/grub/loopback.cfg)
+            # Only graft updated files with they exist
+            if [ -e "../$(basename "$P")" ]; then
+                echo "$P=../$(basename "$P")"
+            else
+                echo "$P=$P"
+            fi
+            ;;
+        boot|casper) ;;
         *) echo "$P=$P";;
     esac
 done > ../path-list.txt
@@ -90,13 +97,7 @@ sudo mkisofs -D -r -V "$VOLID" -cache-inodes -J -l -graft-points \
     -b isolinux/isolinux.bin -c isolinux/boot.cat -x *boot.cat* \
     -no-emul-boot -boot-load-size 4 -boot-info-table \
     -o "$PWDORIG"/"$(basename "$ISO" .iso)"-"$ISOTAG".iso \
-    -path-list ../path-list.txt \
-    casper/$INITRD=../$INITRD \
-    boot/grub/grub.cfg=../grub.cfg \
-    boot/grub/loopback.cfg=../loopback.cfg \
-    README.diskdefines=../README.diskdefines \
-    md5sum.txt=../md5sum.txt \
-    isolinux=../isolinux || (echo "failed see what happened..." && bash)
+    -path-list ../path-list.txt || (echo "failed see what happened..." && bash)
 )
 
 cleanup
