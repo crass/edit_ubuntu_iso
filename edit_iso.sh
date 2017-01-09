@@ -10,6 +10,15 @@ ISO=$1
 TMPDIR=${2:-/tmp/edit_iso.$$}
 PWDORIG=$PWD
 
+function cleanup() {
+    cd "$PWDORIG"
+    umount "$TMPDIR"/isomnt
+    rm -r "$TMPDIR" /tmp/edit_iso
+    exit 1
+}
+
+trap "echo 'cleaning up...'; cleanup" INT
+
 mkdir -p "$TMPDIR"/isomnt
 rm -f /tmp/edit_iso && ln -s "$TMPDIR" /tmp/edit_iso
 sudo mount -o loop "$1" "$TMPDIR"/isomnt
@@ -21,7 +30,7 @@ if [ "x$RESP" = "xy" ]; then
     edit_initrd.sh "$INITRD" || {
         ret=$?
         echo "Not generating iso"
-        sudo umount isomnt
+        ( cleanup ) # do in subshell so we can return with the retcode we want
         exit $ret
     }
 
@@ -90,7 +99,4 @@ sudo mkisofs -D -r -V "$DISKNAME" -cache-inodes -J -l -graft-points \
     isolinux=../isolinux || (echo "failed see what happened..." && bash)
 )
 
-sudo umount isomnt
-
-cd ..
-rm -rf "$TMPDIR"
+cleanup
