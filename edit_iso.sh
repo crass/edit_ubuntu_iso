@@ -56,11 +56,10 @@ if [ "x$RESP" = "xy" ]; then
     chmod -w README.diskdefines
 fi
 
-grep DISKNAME README.diskdefines
-read -p "Enter ISO Image Name (32 chars or less): " DISKNAME
-if [ -z "$DISKNAME" ]; then
-    DISKNAME=$(grep DISKNAME README.diskdefines|cut -f3-|cut -b1-32)
-    DISKNAME=$(awk "{ if $ }" < README.diskdefines)
+VOLID=$(grep DISKNAME README.diskdefines|(read _ _ R; f() { echo $1 $2 $6; }; eval f $R))
+read -p "Enter ISO Volume Name (32 chars or less) [$VOLID]: " _VOLID
+if [ -n "$_VOLID" ]; then
+    VOLID=${_VOLID::32}
 fi
 
 INITRD=$(basename "isomnt/casper/initrd."*)
@@ -87,7 +86,7 @@ for P in casper/* boot/grub/* *; do
         *) echo "$P=$P";;
     esac
 done > ../path-list.txt
-sudo mkisofs -D -r -V "$DISKNAME" -cache-inodes -J -l -graft-points \
+sudo mkisofs -D -r -V "$VOLID" -cache-inodes -J -l -graft-points \
     -b isolinux/isolinux.bin -c isolinux/boot.cat -x *boot.cat* \
     -no-emul-boot -boot-load-size 4 -boot-info-table \
     -o "$PWDORIG"/"$(basename "$ISO" .iso)"-"$ISOTAG".iso \
