@@ -1,9 +1,17 @@
 #!/bin/bash
-set -x
+[ "$DEBUG" == "1" ] && set -x
 
 # see: https://help.ubuntu.com/community/LiveCDCustomization
 # see: https://wiki.ubuntu.com/CustomizeLiveInitrd
 TMP=${TMP:-/tmp}
+
+if [ -z "$1" ]; then
+    echo "Error: $(basename "$0") only accepts one argument which must be the initrd to edit." >&2
+    exit 1
+elif [ ! -e "$1" ]; then
+    echo "Error: '$1' is not a valid path." >&2
+    exit 1
+fi
 
 INITRD=$(readlink -f "$1")
 INITRDDIR="$TMP/$(basename "$INITRD").d"
