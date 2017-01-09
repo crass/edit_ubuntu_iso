@@ -1,10 +1,10 @@
 #!/bin/bash
-set -x
+[ "$DEBUG" == "1" ] && set -x
 
 # see: https://help.ubuntu.com/community/LiveCDCustomization
 # see: https://wiki.ubuntu.com/CustomizeLiveInitrd
 
-PATH=.:$(dirname "$0"):$PATH
+export PATH=$(readlink -f "$(dirname "$0")"):$PATH
 
 ISO=$1
 TMPDIR=${2:-/tmp/edit_iso.$$}
@@ -27,7 +27,7 @@ cd "$TMPDIR"
 read -p "Edit initrd... (y/n) [n]: " RESP
 if [ "x$RESP" = "xy" ]; then
     INITRD=$(ls "isomnt/casper/initrd."*)
-    edit_initrd.sh "$INITRD" || {
+    edit_initrd.sh "$INITRD" "$(pwd)/$(basename "$INITRD")" || {
         ret=$?
         echo "Not generating iso"
         ( cleanup ) # do in subshell so we can return with the retcode we want
@@ -37,14 +37,14 @@ if [ "x$RESP" = "xy" ]; then
 fi
 
 read -p "Edit grub config... (y/n) [n]: " RESP
-cp isomnt/boot/grub/grub.cfg .
 if [ "x$RESP" = "xy" ]; then
+    cp isomnt/boot/grub/grub.cfg .
     sudo nano -w grub.cfg
 fi
 
 read -p "Edit grub loopback config... (y/n) [n]: " RESP
-cp isomnt/boot/grub/loopback.cfg .
 if [ "x$RESP" = "xy" ]; then
+    cp isomnt/boot/grub/loopback.cfg .
     sudo nano -w loopback.cfg
 fi
 
@@ -65,15 +65,16 @@ fi
 
 INITRD=$(basename "isomnt/casper/initrd."*)
 # regen the md5sum.txt
-grep -v "README.diskdefines\|$INITRD" isomnt/md5sum.txt > md5sum.txt
+grep -v "README.diskdefines\|/$INITRD" isomnt/md5sum.txt > md5sum.txt
 md5sum README.diskdefines "$INITRD" |
-    sed 's|initrd|./casper/initrd|' >> md5sum.txt
+    sed -e 's|initrd|./casper/initrd|' \
+        -e 's|README.diskdefines|./README.diskdefines|' >> md5sum.txt
 
 ( cd isomnt
 # regen the iso
 read -p "Enter iso name tag: " ISOTAG
 
-# isolinux directory needs to be written to
+# isolinux directory needs to be written to (boot.cat)
 cp -r isolinux ..
 
 for P in casper/* boot/grub/* *; do
