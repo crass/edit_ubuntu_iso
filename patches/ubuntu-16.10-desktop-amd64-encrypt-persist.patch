@@ -1,0 +1,44 @@
+Add encryption to persistent files for the ubuntu livecd.
+
+diff -ru initrd.d/scripts/casper-helpers initrd-persist.d/scripts/casper-helpers
+--- initrd.d/scripts/casper-helpers	2017-02-10 22:33:56.362269774 -0600
++++ initrd-persist.d/scripts/casper-helpers	2017-02-10 22:34:17.293539058 -0600
+@@ -191,6 +191,25 @@
+     fi
+ }
+ 
++setup_crypt() {
++    modprobe ${MP_QUIET} -b "dm-crypt"
++    # Most of the following stolen from local-top/cryptroot
++    cryptcreate="/sbin/cryptsetup luksOpen $1 $2"
++    cryptkey="Unlocking the disk $1 ($2)\nEnter passphrase: "
++    if [ -x /bin/plymouth ] && plymouth --ping; then
++	cryptkeyscript="plymouth ask-for-password --prompt"
++	cryptkey=$(printf "$cryptkey")
++    else
++	cryptkeyscript="/lib/cryptsetup/askpass"
++    fi
++
++    $cryptkeyscript "$cryptkey" | $cryptcreate --key-file=- &&
++    /sbin/udevadm settle
++    if [ -e "/dev/mapper/$2" ]; then
++	echo "/dev/mapper/$2"
++    fi
++}
++
+ find_cow_device() {
+     pers_label="${1}"
+     cow_backing="/${pers_label}-backing"
+@@ -221,6 +240,12 @@
+                 try_mount "${devname}" "${cow_backing}" "rw" || continue
+                 cow_backing_mp=$(where_is_mounted "${devname}")
+                 if [ -e "${cow_backing_mp}/${pers_fpath}" ]; then
++                    # check to see if its a luks devices, this is probably better than get_fstype
++                    if cryptsetup isLuks "${cow_backing_mp}/${pers_fpath}"; then
++			echo $(setup_crypt "${cow_backing_mp}/${pers_fpath}" ${pers_label})
++			return 0
++                    fi
++                    
+                     echo $(setup_loop "${cow_backing_mp}/${pers_fpath}" "loop" "/sys/block/loop*")
+                     return 0
+                 else
